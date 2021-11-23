@@ -12,7 +12,7 @@ actions = list(string.ascii_lowercase)
 sr = SimpleThreadsRunner(5, lambda x:print("Thread output char:"+x))
 sr.run_threads(iter_data=actions)
 
-# In case the iter_data is large amounts of data, iter_data: Iterator[Any]
+# In case the iter_data : Iterator[Any] is an Iterator of large amounts data
 
 sr.run_threads(iter_data=actions, batch_size=20)
 
