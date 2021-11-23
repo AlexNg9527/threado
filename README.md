@@ -6,7 +6,6 @@ A simple way to run multiple threads do the I/O
 
 import string
 from threado.simple_thread_runner import SimpleThreadsRunner
-from typing import Any, Iterator
 
 actions = list(string.ascii_lowercase)
 sr = SimpleThreadsRunner(5, lambda x:print("Thread output char:"+x))
