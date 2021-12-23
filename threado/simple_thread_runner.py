@@ -1,7 +1,8 @@
+
 import threading
 import queue
 from loguru import logger
-from typing import Callable, Any, Iterator
+from typing import Callable, Any, Iterator, Iterable
 
 
 class SimpleThreadsRunner:
@@ -20,7 +21,9 @@ class SimpleThreadsRunner:
 
     def prepare_threads(self) -> None:
         """
-        Threads are created only function is called, and terminate before it returns. They are there primarily to parallelize I/O (i.e.fetching web pages, download picture, scroll elasticsearch).
+        Threads are created only function is called, and terminate before it returns.
+        They are there primarily to parallelize I/O
+        (i.e.fetching web pages, download picture, scroll elasticsearch).
         """
         for i in range(self.num_workers):
             t = threading.Thread(target=self.fetch, args=(), name=f"child_thread_{i}")
@@ -45,13 +48,16 @@ class SimpleThreadsRunner:
         """
         while True:
             try:
-                _data = self._queue.get_nowait()
+                _data: Iterable = self._queue.get_nowait()
                 i = self._queue.qsize()
             except Exception as e:
                 print(e)
                 break
             logger.info('Current Thread Name Running %s ...' % threading.currentThread().name)
-            self.fn(_data)
+            try:
+                self.fn(_data)
+            except Exception as e:
+                raise f'function: {self.fn.__name__} execution: {e}'
             self._queue.task_done()
             logger.info(f"Tasks left:{i}")
 
