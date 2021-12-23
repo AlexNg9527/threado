@@ -1,3 +1,4 @@
+import queue
 from unittest import TestCase
 import time
 import string
@@ -15,6 +16,8 @@ class TestSimpleThreadsRunner(TestCase):
 
     def test_01_run_threads(self):
         sr = SimpleThreadsRunner(5, self.n_print)
+        # LifoQueue
+        sr._queue = queue.LifoQueue()
         sr.run_threads(iter_data=self.actions)
 
     def test_02_batch_run_threads(self):
