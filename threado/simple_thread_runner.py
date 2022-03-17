@@ -1,4 +1,3 @@
-
 import threading
 import queue
 from loguru import logger
@@ -11,23 +10,23 @@ class SimpleThreadsRunner:
     Performance is at least as good as Queue producer/consumer, which works in an analogous fashion.
     Empty the queue after use.
     """
+    SENTINEL = object()
 
-    def __init__(self, num_workers: int, fn: Callable[..., Any]):
+    def __init__(self, fn: Callable[..., Any]):
         self._queue = queue.Queue()
         self._lock = threading.RLock()
-        self.num_workers = num_workers
         self._threads = []
         self.fn = fn
 
-    def prepare_threads(self) -> None:
+    def prepare_threads(self, num_workers) -> None:
         """
         Threads are created only function is called, and terminate before it returns.
         They are there primarily to parallelize I/O
         (i.e.fetching web pages, download picture, scroll elasticsearch).
         """
-        for i in range(self.num_workers):
+        for i in range(num_workers):
             t = threading.Thread(target=self.fetch, args=(), name=f"child_thread_{i}")
-            # t.setDaemon(True)
+            t.setDaemon(True)
             t.start()
             self._threads.append(t)
 
@@ -36,7 +35,10 @@ class SimpleThreadsRunner:
         Tell all the threads to terminate (by sending a sentinel value) and
         wait for them to do so.
         """
-
+        # Note that you need two loops, since you can't say which
+        # thread will get each sentinel
+        for t in self._threads:
+            self._queue.put(self.SENTINEL)  # sentinel
         for t in self._threads:
             t.join()
         self._threads = []
@@ -55,6 +57,8 @@ class SimpleThreadsRunner:
                 break
             logger.info('Current Thread Name Running %s ...' % threading.currentThread().name)
             try:
+                if _data is self.SENTINEL:
+                    return
                 self.fn(_data)
             except Exception as e:
                 raise f'function: {self.fn.__name__} execution: {e}'
@@ -69,7 +73,7 @@ class SimpleThreadsRunner:
         as multiple threads may produce/consume data to the queue"""
         return self._queue.qsize()
 
-    def q_consumer(self):
+    def q_consumer(self, num_workers):
         """
         This fn can be used separated with q_producer
         Example:
@@ -79,19 +83,19 @@ class SimpleThreadsRunner:
         """
         with self._lock:
             try:
-                self.prepare_threads()
+                self.prepare_threads(num_workers)
             finally:
                 self.wait_threads()
 
-    def run_threads(self, iter_data: Iterator[Any], batch_size: int = None):
+    def run_threads(self, num_workers: int, iter_data: Iterator[Any], batch_size: int = None):
         """Add batch_size params in case iter_data is huge number"""
         for _ in iter_data:
             self.q_producer(_)
             if batch_size:
                 _qsize = self.get_qsize()
                 if _qsize >= batch_size:
-                    self.q_consumer()
+                    self.q_consumer(num_workers)
 
         _qsize = self.get_qsize()
         if _qsize != 0:
-            self.q_consumer()
+            self.q_consumer(num_workers)
